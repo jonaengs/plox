@@ -61,10 +61,19 @@ class Scanner:
         self.current += 1
         return True
     
+    @staticmethod
+    def isdigit(c):
+        return '0' <= c <= '9'
+    
     def peek(self):
         if self.is_at_end():
             return '\0'
         return self.source[self.current]
+    
+    def peek_next(self):
+        if self.current + 1 >= len(self.source):
+            return '\0'
+        return self.source[self.current + 1]
     
     def scan_token(self):
         c = self.advance()
@@ -83,11 +92,43 @@ class Scanner:
         elif c in (' ', '\t', '\r', '\n'):
             # Ignore whitespace, except newlines where we increment line no.
             self.line += c == '\n'
+        elif c == '"':
+            self.string()
+        elif self.isdigit(c):
+            self.number()
         else:
             lox.Lox.error(self.line, "Unexpected character")
 
+    def number(self):
+        while self.isdigit(self.peek()):
+            self.advance()
+
+        if self.peek() == '.' and self.isdigit(self.peek_next()):
+            self.advance()  # consume the dot
+            while self.isdigit(self.peek()):
+                self.advance()
+
+        self.add_token(
+            float(self.source[self.start:self.current])
+        )
         
+    def string(self):
+        # Note: the implementation diverges from the book here:
+        # We don't support multi-line strings
+        while self.peek() not in ('"', '\n') and not self.is_at_end():
+            self.advance()
+
+        if self.is_at_end() or self.peek() == '\n':
+            lox.Lox.error(self.line, "Unterminated string.")
+            return
         
+        # Move over the closing '"'
+        self.advance()
+
+        string_value = self.source[self.start+1 : self.current-1]  # exclude quotes
+        self.add_token(STRING, string_value)
+
+            
 
 
 
