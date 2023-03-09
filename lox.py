@@ -1,6 +1,10 @@
 import sys
+from expr_ast import print_expr
+from lox_token import Token
+import token_type as TokenType
 
 import scanner as scanner_module
+import lox_parser as parser_module
 
 class Lox:
     @classmethod
@@ -10,8 +14,15 @@ class Lox:
     had_error = False
 
     @staticmethod
-    def error(line: int, message: str):
+    def scan_error(line: int, message: str):
         Lox.report(line, "", message)
+    
+    @staticmethod
+    def parse_error(token: Token, message: str):
+        if token.type == TokenType.EOF:
+            Lox.report(token.line, " at end", message)
+        else:
+            Lox.report(token.line, " at '" + token.lexeme + "'", message)
 
     @staticmethod
     def report(line: int, where: str, message: str):
@@ -45,8 +56,10 @@ class Lox:
         scanner = scanner_module.Scanner(source)
         tokens = scanner.scan_tokens()
 
-        for token in tokens:
-            print(token)
+        parser = parser_module.Parser(tokens)
+        expression = parser.parse()
+
+        print(print_expr(expression))
 
 if __name__ == '__main__':
     args = sys.argv

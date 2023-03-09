@@ -117,7 +117,7 @@ class Scanner:
                 prev = self.peek()
                 while not (prev == "*" and self.peek() == "/"):
                     if self.is_at_end():
-                        lox.Lox.error(self.line, "Unterminated block comment")
+                        lox.Lox.scan_error(self.line, "Unterminated block comment")
                         break
                     
                     prev = self.advance()
@@ -136,7 +136,7 @@ class Scanner:
         elif self.is_alpha(c):
             self.identifier()
         else:
-            lox.Lox.error(self.line, "Unexpected character")
+            lox.Lox.scan_error(self.line, "Unexpected character")
 
     def identifier(self):
         while self.is_alphanum(self.peek()):
@@ -166,7 +166,7 @@ class Scanner:
             self.advance()
 
         if self.is_at_end() or self.peek() == '\n':
-            lox.Lox.error(self.line, "Unterminated string.")
+            lox.Lox.scan_error(self.line, "Unterminated string.")
             return
         
         # Move over the closing '"'
