@@ -23,6 +23,25 @@ two_char_lexemes = {
     ">": ("=", (GREATER_EQUAL, GREATER))
 }
 
+keyword_lexemes = {
+    "and": AND,
+    "class": CLASS,
+    "else": ELSE,
+    "false": FALSE,
+    "for": FOR,
+    "fun": FUN,
+    "if": IF,
+    "nil": NIL,
+    "or": OR,
+    "print": PRINT,
+    "return": RETURN,
+    "super": SUPER,
+    "this": THIS,
+    "true": TRUE,
+    "var": VAR,
+    "while": WHILE,
+}
+
 class Scanner:
     def __init__(self, source):
         self.source = source
@@ -62,8 +81,15 @@ class Scanner:
         return True
     
     @staticmethod
-    def isdigit(c):
+    def is_digit(c):
         return '0' <= c <= '9'
+    
+    @staticmethod
+    def is_alpha(c):
+        return 'a' <= c <= 'z' or 'A' <= c <= 'Z' or c == '_'
+    
+    def is_alphanum(self, c):
+        return self.is_alpha(c) or self.is_digit(c)
     
     def peek(self):
         if self.is_at_end():
@@ -94,18 +120,29 @@ class Scanner:
             self.line += c == '\n'
         elif c == '"':
             self.string()
-        elif self.isdigit(c):
+        elif self.is_digit(c):
             self.number()
+        elif self.is_alpha(c):
+            self.identifier()
         else:
             lox.Lox.error(self.line, "Unexpected character")
 
-    def number(self):
-        while self.isdigit(self.peek()):
+    def identifier(self):
+        while self.is_alphanum(self.peek()):
             self.advance()
 
-        if self.peek() == '.' and self.isdigit(self.peek_next()):
+        text = self.source[self.start:self.current]
+        ttype = keyword_lexemes.get(text, IDENTIFIER)
+
+        self.add_token(ttype)
+
+    def number(self):
+        while self.is_digit(self.peek()):
+            self.advance()
+
+        if self.peek() == '.' and self.is_digit(self.peek_next()):
             self.advance()  # consume the dot
-            while self.isdigit(self.peek()):
+            while self.is_digit(self.peek()):
                 self.advance()
 
         self.add_token(
