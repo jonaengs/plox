@@ -3,7 +3,7 @@ import lox
 from lox_token import Token
 from token_type import *
 
-simple_lexemes = {
+simple_one_char_lexemes = {
     '(': LEFT_PAREN,
     ')': RIGHT_PAREN,
     '{': LEFT_BRACE,
@@ -16,7 +16,7 @@ simple_lexemes = {
     '*': STAR
 }
 
-two_char_lexemes = {
+simple_two_char_lexemes = {
     "!": ("=", (BANG_EQUAL, BANG)),
     "=": ("=", (EQUAL_EQUAL, EQUAL)),
     "<": ("=", (LESS_EQUAL, LESS)),
@@ -51,7 +51,7 @@ class Scanner:
         self.current = 0
         self.line = 1
 
-    def is_at_end(self):
+    def is_at_end(self) -> bool:
         return self.current >= len(self.source)
 
     def scan_tokens(self) -> list[Token]:
@@ -63,7 +63,7 @@ class Scanner:
 
         return self.tokens
     
-    def advance(self):
+    def advance(self) -> str:
         self.current += 1
         return self.source[self.current - 1]
     
@@ -71,7 +71,7 @@ class Scanner:
         text = self.source[self.start:self.current]
         self.tokens.append(Token(ttype, text, literal, self.line))
 
-    def match(self, expected: str):
+    def match(self, expected: str) -> bool:
         if self.is_at_end(): 
             return False
         if self.source[self.current] != expected:
@@ -81,37 +81,48 @@ class Scanner:
         return True
     
     @staticmethod
-    def is_digit(c):
+    def is_digit(c: str) -> bool:
         return '0' <= c <= '9'
     
     @staticmethod
-    def is_alpha(c):
+    def is_alpha(c: str) -> bool:
         return 'a' <= c <= 'z' or 'A' <= c <= 'Z' or c == '_'
     
-    def is_alphanum(self, c):
+    def is_alphanum(self, c: str) -> bool:
         return self.is_alpha(c) or self.is_digit(c)
     
-    def peek(self):
+    def peek(self) -> str:
         if self.is_at_end():
             return '\0'
         return self.source[self.current]
     
-    def peek_next(self):
+    def peek_next(self) -> str:
         if self.current + 1 >= len(self.source):
             return '\0'
         return self.source[self.current + 1]
     
     def scan_token(self):
         c = self.advance()
-        if c in simple_lexemes:
-            self.add_token(simple_lexemes[c])
-        elif c in two_char_lexemes:
-            expect_char, ttypes = two_char_lexemes[c]
+        if c in simple_one_char_lexemes:
+            self.add_token(simple_one_char_lexemes[c])
+        elif c in simple_two_char_lexemes:
+            expect_char, ttypes = simple_two_char_lexemes[c]
             ttype = ttypes[0] if self.match(expect_char) else ttypes[1]
             self.add_token(ttype)
         elif c == "/":
             if self.match("/"):  # Double slash => comment
                 while self.peek() != "\n" and not self.is_at_end():
+                    self.advance()
+            elif self.match("*"):  # /* => Start of block comment
+                prev = self.peek()
+                while not (prev == "*" and self.peek() == "/"):
+                    if self.is_at_end():
+                        lox.Lox.error(self.line, "Unterminated block comment")
+                        break
+                    
+                    prev = self.advance()
+
+                if not self.is_at_end():
                     self.advance()
             else:
                 self.add_token(SLASH)
@@ -145,9 +156,8 @@ class Scanner:
             while self.is_digit(self.peek()):
                 self.advance()
 
-        self.add_token(
-            float(self.source[self.start:self.current])
-        )
+        text = self.source[self.start:self.current]
+        self.add_token(NUMBER, float(text))
         
     def string(self):
         # Note: the implementation diverges from the book here:

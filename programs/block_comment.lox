@@ -1,0 +1,6 @@
+/* single line block */
+var a = 2
+/*
+    multi-line block
+*/
+var b = (a / 2 + 1) * 5
