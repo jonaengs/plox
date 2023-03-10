@@ -29,7 +29,7 @@ class Parser:
                 # Discard right-hand expression
                 try: self.expression()
                 except ParseError: ...
-                
+
                 raise self.error(self.previous(), "Expected expression left of binary operator")
 
         def equality() -> Expr:
@@ -85,10 +85,7 @@ class Parser:
                 return Literal(value)
             elif self.match(LEFT_PAREN):
                 expr = self.expression()
-                print("before consume:", self.tokens[self.current])
-                print("remaining:", self.tokens[self.current])
                 self.consume(RIGHT_PAREN, "Expcted ')' after expression.")
-                print("current:", self.tokens[self.current])
                 return Grouping(expr)
             
             raise self.error(self.peek(), "Expected expression.")

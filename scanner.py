@@ -1,6 +1,6 @@
 
 import lox
-from lox_token import Token
+from lox_token import Lox_Literal, Token
 from token_type import *
 
 simple_one_char_lexemes = {
@@ -67,7 +67,7 @@ class Scanner:
         self.current += 1
         return self.source[self.current - 1]
     
-    def add_token(self, ttype: TokenType, literal: object=None):
+    def add_token(self, ttype: TokenType, literal: Lox_Literal=None):
         text = self.source[self.start:self.current]
         self.tokens.append(Token(ttype, text, literal, self.line))
 

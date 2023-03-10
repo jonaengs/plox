@@ -1,10 +1,11 @@
 import sys
-from expr_ast import print_expr
 from lox_token import Token
 import token_type as TokenType
 
+
 import scanner as scanner_module
 import lox_parser as parser_module
+import interpreter as interpreter_module
 
 class Lox:
     @classmethod
@@ -12,6 +13,7 @@ class Lox:
         raise ValueError("Class should not be instantiated")
     
     had_error = False
+    had_runtime_error = False
 
     @staticmethod
     def scan_error(line: int, message: str):
@@ -23,6 +25,11 @@ class Lox:
             Lox.report(token.line, " at end", message)
         else:
             Lox.report(token.line, " at '" + token.lexeme + "'", message)
+
+    @staticmethod
+    def runtime_error(error: interpreter_module.LoxRuntimeError):
+        print(f"[line {error.token.line}] Error: {error.message}", file=sys.stderr)
+        Lox.had_runtime_error = True
 
     @staticmethod
     def report(line: int, where: str, message: str):
@@ -38,6 +45,8 @@ class Lox:
         Lox.run(source)
         if Lox.had_error:
             sys.exit(65)
+        elif Lox.had_runtime_error:
+            sys.exit(70)
 
     @staticmethod
     def run_prompt():
@@ -49,18 +58,21 @@ class Lox:
 
             Lox.run(line)
             Lox.had_error = False
-            
+            # TODO Lox.had_runtime_error = False ??
+
 
     @staticmethod
     def run(source: str):
         scanner = scanner_module.Scanner(source)
         tokens = scanner.scan_tokens()
 
-        print([t.lexeme for t in tokens[:-1]])
+        # print([t.lexeme for t in tokens[:-1]])
         parser = parser_module.Parser(tokens)
         expression = parser.parse()
+        
+        interpreter = interpreter_module.Interpreter()
+        interpreter.interpret(expression)
 
-        print(print_expr(expression))
 
 if __name__ == '__main__':
     args = sys.argv

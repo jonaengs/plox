@@ -1,6 +1,6 @@
 from typing import NamedTuple, Union
 
-from lox_token import Token
+from lox_token import Token, Lox_Literal
 import token_type as TokenType
 
 # TODO: Figure out if we can keep abc metaclass somehow
@@ -17,7 +17,7 @@ class Grouping(NamedTuple):
     expression: Expr
 
 class Literal(NamedTuple):
-    value: object
+    value: Lox_Literal
 
 class Unary(NamedTuple):
     operator: Token

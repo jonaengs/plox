@@ -2,10 +2,12 @@ from typing import NamedTuple
 
 from token_type import TokenType
 
+Lox_Literal = float | str | bool | None
+
 class Token(NamedTuple):
     type: TokenType
     lexeme: str
-    literal: object
+    literal: Lox_Literal
     line: int
 
     def __str__(self) -> str:
