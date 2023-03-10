@@ -56,6 +56,7 @@ class Lox:
         scanner = scanner_module.Scanner(source)
         tokens = scanner.scan_tokens()
 
+        print([t.lexeme for t in tokens[:-1]])
         parser = parser_module.Parser(tokens)
         expression = parser.parse()
 

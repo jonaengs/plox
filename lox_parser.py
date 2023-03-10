@@ -15,11 +15,25 @@ class Parser:
     def parse(self):
         try:
             return self.expression()
-        except ParseError as e:
+        except ParseError:
             return None
 
-    def expression(self) -> Expr:    
+    def expression(self) -> Expr:
+        def detect_illegal_binary_operator():
+            # Leave out minus as it is a valid unary op
+            binary_ops = (BANG_EQUAL, EQUAL_EQUAL,
+                LESS, LESS_EQUAL, GREATER, GREATER_EQUAL,
+                PLUS, SLASH, STAR
+            )
+            if self.match(*binary_ops):
+                # Discard right-hand expression
+                try: self.expression()
+                except ParseError: ...
+                
+                raise self.error(self.previous(), "Expected expression left of binary operator")
+
         def equality() -> Expr:
+            detect_illegal_binary_operator()
             expr = comparison()
 
             while self.match(BANG_EQUAL, EQUAL_EQUAL):
@@ -71,7 +85,10 @@ class Parser:
                 return Literal(value)
             elif self.match(LEFT_PAREN):
                 expr = self.expression()
+                print("before consume:", self.tokens[self.current])
+                print("remaining:", self.tokens[self.current])
                 self.consume(RIGHT_PAREN, "Expcted ')' after expression.")
+                print("current:", self.tokens[self.current])
                 return Grouping(expr)
             
             raise self.error(self.peek(), "Expected expression.")
@@ -96,7 +113,7 @@ class Parser:
         return ParseError()
         
     def consume(self, ttype: TokenType, message: str):
-        if not self.is_at_end() and self.match(ttype):
+        if self.is_at_end() or self.peek().type == ttype:
             return self.advance()
         
         raise self.error(self.peek(), message)

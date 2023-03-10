@@ -39,7 +39,6 @@ def print_expr(expr: Expr):
         
 
 if __name__ == '__main__':
-    Literal(value=123)
     expr = Binary(
         Unary(
             Token(TokenType.MINUS, "-", None, 1),
