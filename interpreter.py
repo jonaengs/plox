@@ -1,10 +1,10 @@
 from environment import Environment
 import lox
-from stmt_ast import BlockStmt, ExpressionStmt, PrintStmt, Stmt, VarStmt
+from stmt_ast import BlockStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
 import token_type as TokenType
 from error import LoxRuntimeError
 
-from expr_ast import Assign, Expr, Grouping, Literal, Unary, Binary, Variable
+from expr_ast import Assign, Expr, Grouping, Literal, Logical, Unary, Binary, Variable
 from lox_token import Token
 
 class Interpreter:
@@ -32,6 +32,15 @@ class Interpreter:
                 self.environment.define(token.lexeme, value)
             case BlockStmt(stmts):
                 self._execute_block(stmts, Environment(self.environment))
+            case IfStmt(cond, b_then, b_else):
+                if is_truthy(self._evaluate(cond)):
+                    self._execute(b_then)
+                elif b_else is not None:
+                    self._execute(b_else)
+            case WhileStmt(cond, body):
+                while is_truthy(self._evaluate(cond)):
+                    self._execute(body)
+                    
     
     def _execute_block(self, statements: list[Stmt], environment: Environment):
         prev_env = self.environment
@@ -54,7 +63,17 @@ class Interpreter:
                     case TokenType.MINUS:
                         return -to_float(right, op)
                     case TokenType.BANG:
-                        return not is_truthy(right) 
+                        return not is_truthy(right)
+            case Logical(l_expr, op, r_expr):
+                # Logical expr returns the value of one of its operands
+                # not a boolean (except when operands are booleans).
+                # The truthiness will be the same as if, though.
+                left = self._evaluate(l_expr)
+                if op.type == TokenType.OR and is_truthy(left):
+                    return left
+                elif not is_truthy(left):
+                    return left
+                return self._evaluate(r_expr)
             case Binary(l_expr, op, r_expr):
                 left = self._evaluate(l_expr)
                 right = self._evaluate(r_expr)
@@ -106,11 +125,14 @@ def stringify(val: object) -> str:
         False: "false",
         None: "nil"
     }
-    if val in simple_conversions:
-        return simple_conversions[val]  # type: ignore[index] 
     
     if isinstance(val, float) and str(val).endswith(".0"):
         return str(val)[:-2]
+    
+    # Do after float check because 1 == True, meaning otherwise
+    # all 1's will print as 'true'
+    if val in simple_conversions:
+        return simple_conversions[val]  # type: ignore[index] 
 
     return str(val)
 

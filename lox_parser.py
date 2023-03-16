@@ -1,6 +1,6 @@
-from expr_ast import Assign, Binary, Expr, Grouping, Literal, Unary, Variable
+from expr_ast import Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable
 from lox_token import Token
-from stmt_ast import BlockStmt, ExpressionStmt, PrintStmt, Stmt, VarStmt
+from stmt_ast import BlockStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
 import lox
 from error import LoxParseError
@@ -18,16 +18,16 @@ class Parser:
                 statements.append(decl)
         return statements
     
+    def var_declaration(self):
+        name = self.consume(IDENTIFIER, "Expect variable name.")
+        initializer = self.expression() if self.match(EQUAL) else None
+        self.consume(SEMICOLON, "Expect ';' after variable declaration.")
+        return VarStmt(name, initializer)
+    
     def declaration(self) -> Stmt | None:
-        def var_declaration():
-            name = self.consume(IDENTIFIER, "Expect variable name.")
-            initializer = self.expression() if self.match(EQUAL) else None
-            self.consume(SEMICOLON, "Expect ';' after variable declaration.")
-            return VarStmt(name, initializer)
-        
         try:
             if self.match(VAR):
-                return var_declaration()
+                return self.var_declaration()
             return self.statement()
         except LoxParseError:
             self.synchronize()
@@ -53,9 +53,83 @@ class Parser:
             statements = list(get_statements())
             self.consume(RIGHT_BRACE, "Expect '}' after block.")
             return statements
+        
+        def if_statement() -> IfStmt:
+            self.consume(LEFT_PAREN, "Expect '(' after 'if'.")
+            condition = self.expression()
+            self.consume(LEFT_PAREN, "Expect ')' after 'if' condition.")
+
+            then_branch = self.statement()  # TODO: match block instead? or block | if
+            else_branch = self.statement() if self.match(ELSE) else None
+            return IfStmt(condition, then_branch, else_branch)
+        
+        def while_statement() -> WhileStmt:
+            self.consume(LEFT_PAREN, "Expect '(' after 'while'.")
+            condition = self.expression()
+            self.consume(RIGHT_PAREN, "Expect ')' after 'while' condition.")
+
+            body = self.statement()
+            return WhileStmt(condition, body)
+        
+        def for_statement() -> Stmt:
+            """
+            For-statements are syntactic sugar in Lox. 
+            They get 'de-sugared' into while-loops, so:
+
+            'for (var i = 0; i < 10; i = i + 1)'
+            
+            is turned into:
+            
+            {
+                var i = 0;
+                while (i < 10) {
+                    print i;
+                    i = i + 1;
+                }
+            }
+            """
+
+            # Gather all the parts
+            self.consume(LEFT_PAREN, "Expect '(' after 'for'.")
+            if self.match(SEMICOLON):
+                initializer = None
+            elif self.match(VAR):
+                initializer = self.var_declaration()
+            else:
+                initializer = expression_statement()
+
+            condition = None if self.check(SEMICOLON) else self.expression()
+            self.consume(SEMICOLON, "Expect ';' after loop condition.")
+
+            increment = None if self.check(RIGHT_PAREN) else self.expression()
+            self.consume(RIGHT_PAREN, "Expect ')' after for clause")
+
+            body = self.statement()
+
+            # Put all the parts together into a two-level block while-statement
+            while_body = BlockStmt(
+                [body] + ([ExpressionStmt(increment)] if increment else [])
+            )
+            while_cond = condition or Literal(True)
+            while_stmt = WhileStmt(while_cond, while_body)
+
+            if initializer:
+                return BlockStmt([initializer, while_stmt])
+            
+            return while_stmt
+
+        
+        if self.match(FOR):
+            return for_statement()
+        
+        if self.match(IF):
+            return if_statement()
 
         if self.match(PRINT):
             return print_statement()
+        
+        if self.match(WHILE):
+            return while_statement()
         
         if self.match(LEFT_BRACE):
             return BlockStmt(block())
@@ -77,7 +151,7 @@ class Parser:
                 raise self.error(self.previous(), "Expected expression left of binary operator")
             
         def assignment() -> Expr:
-            expr = equality()
+            expr = or_expr()
 
             if self.match(EQUAL):  # Won't match on '==' due to above equality() call
                 value = assignment()  # Recursively evaluate to the right. Allows chaining assignment
@@ -86,6 +160,24 @@ class Parser:
                 
                 # Report error. No need to raise and synchronize because the parser is not confused
                 self.error(self.previous(), "Invalid assignment target.")
+
+            return expr
+        
+        def or_expr() -> Expr:
+            expr = and_expr()
+            while self.match(AND):
+                operator = self.previous()
+                right = and_expr()
+                expr = Logical(expr, operator, right)
+ 
+            return expr
+
+        def and_expr() -> Expr:
+            expr = equality()
+            while self.match(AND):
+                operator = self.previous()
+                right = equality()
+                expr = Logical(expr, operator, right)
 
             return expr
 
