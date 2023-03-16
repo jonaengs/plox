@@ -6,7 +6,7 @@ import token_type as TokenType
 # TODO: Figure out if we can keep abc metaclass somehow
 # class Expr(NamedTuple, metaclass=ABCMeta): 
 
-Expr = Union["Binary", "Grouping", "Literal", "Unary"]
+Expr = Union["Binary", "Grouping", "Literal", "Unary", "Variable", "Assign"]
 
 class Binary(NamedTuple):
     left: Expr
@@ -23,7 +23,16 @@ class Unary(NamedTuple):
     operator: Token
     right: Expr
 
+class Variable(NamedTuple):
+    token: Token
+
+class Assign(NamedTuple):
+    token: Token
+    value: Expr
+
+
 def print_expr(expr: Expr):
+    # TODO: Add remaining classes or remove completely
     def parenthesize(name: str, *exprs: Expr):
         return f"({name} {' '.join(map(print_expr, exprs))})"
      

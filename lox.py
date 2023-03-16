@@ -6,6 +6,7 @@ import token_type as TokenType
 import scanner as scanner_module
 import lox_parser as parser_module
 import interpreter as interpreter_module
+from error import LoxRuntimeError
 
 class Lox:
     @classmethod
@@ -14,6 +15,8 @@ class Lox:
     
     had_error = False
     had_runtime_error = False
+
+    interpreter = interpreter_module.Interpreter()
 
     @staticmethod
     def scan_error(line: int, message: str):
@@ -27,7 +30,7 @@ class Lox:
             Lox.report(token.line, " at '" + token.lexeme + "'", message)
 
     @staticmethod
-    def runtime_error(error: interpreter_module.LoxRuntimeError):
+    def runtime_error(error: LoxRuntimeError):
         print(f"[line {error.token.line}] Error: {error.message}", file=sys.stderr)
         Lox.had_runtime_error = True
 
@@ -68,10 +71,9 @@ class Lox:
 
         # print([t.lexeme for t in tokens[:-1]])
         parser = parser_module.Parser(tokens)
-        expression = parser.parse()
+        statements = parser.parse()
         
-        interpreter = interpreter_module.Interpreter()
-        interpreter.interpret(expression)
+        Lox.interpreter.interpret(statements)
 
 
 if __name__ == '__main__':

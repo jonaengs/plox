@@ -1,40 +1,65 @@
+from environment import Environment
 import lox
+from stmt_ast import BlockStmt, ExpressionStmt, PrintStmt, Stmt, VarStmt
 import token_type as TokenType
+from error import LoxRuntimeError
 
-from expr_ast import Expr, Grouping, Literal, Unary, Binary
+from expr_ast import Assign, Expr, Grouping, Literal, Unary, Binary, Variable
 from lox_token import Token
 
-class LoxRuntimeError(Exception):
-    def __init__(self, token: Token, message: str):
-        super().__init__()
-        self.token = token
-        self.message = message
-
-
 class Interpreter:
-    def interpret(self, expression: Expr):
+    def __init__(self) -> None:
+        self.environment = Environment()
+
+    def interpret(self, statements: list[Stmt]):
         try:
-            val = self.evaluate(expression)
-            print(stringify(val))
+            for statement in statements:
+                self._execute(statement)
+                # val = self.evaluate(expression)
+                # print(stringify(val))
         except LoxRuntimeError as error:
             lox.Lox.runtime_error(error)
 
-    def evaluate(self, expr: Expr) -> object:
+    def _execute(self, statement: Stmt):
+        match statement:
+            case PrintStmt(expr):
+                value = self._evaluate(expr)
+                print(stringify(value))
+            case ExpressionStmt(expr):
+                self._evaluate(expr)
+            case VarStmt(token, initial):
+                # Allow declaring vars without initial value
+                # All values without initial are set to nil/None
+                value = initial and self._evaluate(initial)
+                self.environment.define(token.lexeme, value)
+            case BlockStmt(stmts):
+                self._execute_block(stmts, Environment(self.environment))
+    
+    def _execute_block(self, statements: list[Stmt], environment: Environment):
+        prev_env = self.environment
+        try:
+            self.environment  = environment
+            for statement in statements:
+                self._execute(statement)
+        finally:
+            self.environment = prev_env
+
+    def _evaluate(self, expr: Expr) -> object:
         match expr:
             case Literal(value):
                 return value
             case Grouping(expr):
-                return self.evaluate(expr)
+                return self._evaluate(expr)
             case Unary(op, expr):
-                right = self.evaluate(expr)
+                right = self._evaluate(expr)
                 match op.type:
                     case TokenType.MINUS:
                         return -to_float(right, op)
                     case TokenType.BANG:
                         return not is_truthy(right) 
             case Binary(l_expr, op, r_expr):
-                left = self.evaluate(l_expr)
-                right = self.evaluate(r_expr)
+                left = self._evaluate(l_expr)
+                right = self._evaluate(r_expr)
                 match op.type:
                     case TokenType.MINUS:
                         return to_float(left, op) - to_float(right, op)
@@ -50,6 +75,7 @@ class Interpreter:
                     case TokenType.PLUS:
                         if type(left) == type(right) and type(left) in (str, float):
                             return left + right  # type: ignore[operator]
+                        print(type(left), type(right))
                         raise LoxRuntimeError(op, "Operands must be numbers or strings")
 
                     case TokenType.GREATER:
@@ -65,11 +91,16 @@ class Interpreter:
                         return left == right
                     case TokenType.BANG_EQUAL:
                         return left != right
+            case Variable(token):
+                return self.environment.get(token)
+            case Assign(token, expr):
+                # Make assignment an expression
+                expr_val = self._evaluate(expr)
+                self.environment.assign(token, expr_val)
+                return expr_val
 
-                    
-                    
-        # Should be unreachable
-        return None
+        raise Exception("Interpreter missing match case")
+
     
 def stringify(val: object) -> str:
     simple_conversions = {

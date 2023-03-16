@@ -1,3 +1,25 @@
+## Chapter 8
+```
+program        → statement* EOF ;
+
+statement      → exprStmt
+               | printStmt ;
+
+exprStmt       → expression ";" ;
+printStmt      → "print" expression ";" ;
+```
+8.2: 
+```
+program        → declaration* EOF ;
+
+declaration    → varDecl
+               | statement ;
+
+statement      → exprStmt
+               | printStmt ;
+```
+
+
 ## Chapter 6
 ```
 expression     → equality ;
