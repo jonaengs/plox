@@ -1,5 +1,6 @@
 import sys
 from lox_token import Token
+from stmt_ast import ExpressionStmt, PrintStmt
 import token_type as TokenType
 
 
@@ -59,10 +60,26 @@ class Lox:
             except EOFError:
                 break
 
-            Lox.run(line)
+            Lox.repl_run(line)
             Lox.had_error = False
             # TODO Lox.had_runtime_error = False ??
 
+    @staticmethod
+    def repl_run(line: str):
+        scanner = scanner_module.Scanner(line)
+        tokens = scanner.scan_tokens()
+
+        # print([t.lexeme for t in tokens[:-1]])
+        parser = parser_module.Parser(tokens)
+        statements = parser.parse()
+        
+        # Turn expressions into print statements so they get printed
+        statements = [
+            PrintStmt(statement.expression) if type(statement) == ExpressionStmt
+            else statement
+            for statement in statements
+        ]
+        Lox.interpreter.interpret(statements)
 
     @staticmethod
     def run(source: str):

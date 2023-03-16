@@ -15,8 +15,6 @@ class Interpreter:
         try:
             for statement in statements:
                 self._execute(statement)
-                # val = self.evaluate(expression)
-                # print(stringify(val))
         except LoxRuntimeError as error:
             lox.Lox.runtime_error(error)
 
