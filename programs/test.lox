@@ -1,0 +1,4 @@
+if (true) var a = 2;
+else var a = 3;
+
+print a

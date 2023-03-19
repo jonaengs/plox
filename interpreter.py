@@ -1,6 +1,6 @@
 from environment import Environment
 import lox
-from stmt_ast import BlockStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
+from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
 import token_type as TokenType
 from error import LoxRuntimeError
 
@@ -10,6 +10,7 @@ from lox_token import Token
 class Interpreter:
     def __init__(self) -> None:
         self.environment = Environment()
+        self.hit_break = False
 
     def interpret(self, statements: list[Stmt]):
         try:
@@ -19,6 +20,9 @@ class Interpreter:
             lox.Lox.runtime_error(error)
 
     def _execute(self, statement: Stmt):
+        if self.hit_break:
+            return
+        
         match statement:
             case PrintStmt(expr):
                 value = self._evaluate(expr)
@@ -40,7 +44,10 @@ class Interpreter:
             case WhileStmt(cond, body):
                 while is_truthy(self._evaluate(cond)):
                     self._execute(body)
-                    
+                    if self.hit_break: break
+                self.hit_break = False
+            case BreakStmt(_token):
+                self.hit_break = True  
     
     def _execute_block(self, statements: list[Stmt], environment: Environment):
         prev_env = self.environment

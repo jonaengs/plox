@@ -40,6 +40,8 @@ keyword_lexemes = {
     "true": TRUE,
     "var": VAR,
     "while": WHILE,
+    
+    "break": BREAK,
 }
 
 class Scanner:

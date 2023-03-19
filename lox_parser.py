@@ -1,6 +1,6 @@
 from expr_ast import Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable
-from lox_token import Token
-from stmt_ast import BlockStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
+from lox_token import Lox_Literal, Token
+from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
 import lox
 from error import LoxParseError
@@ -9,6 +9,7 @@ class Parser:
     def __init__(self, tokens: list[Token]):
         self.tokens = tokens
         self.current = 0
+        self.loop_depth = 0  # Tracks whether we're currently inside a loop or not
 
     def parse(self) -> list[Stmt]:
         statements = []
@@ -57,7 +58,7 @@ class Parser:
         def if_statement() -> IfStmt:
             self.consume(LEFT_PAREN, "Expect '(' after 'if'.")
             condition = self.expression()
-            self.consume(LEFT_PAREN, "Expect ')' after 'if' condition.")
+            self.consume(RIGHT_PAREN, "Expect ')' after 'if' condition.")
 
             then_branch = self.statement()  # TODO: match block instead? or block | if
             else_branch = self.statement() if self.match(ELSE) else None
@@ -68,8 +69,19 @@ class Parser:
             condition = self.expression()
             self.consume(RIGHT_PAREN, "Expect ')' after 'while' condition.")
 
+            self.loop_depth += 1
             body = self.statement()
+            self.loop_depth -= 1
+
             return WhileStmt(condition, body)
+        
+        def break_statement() -> Stmt:
+            if not self.loop_depth:
+                raise self.error(self.previous(), "Expect 'break' to appear inside a loop.")
+            
+            stmt = BreakStmt(self.previous())
+            self.consume(SEMICOLON, "Expect ';' after break.")
+            return stmt 
         
         def for_statement() -> Stmt:
             """
@@ -104,7 +116,9 @@ class Parser:
             increment = None if self.check(RIGHT_PAREN) else self.expression()
             self.consume(RIGHT_PAREN, "Expect ')' after for clause")
 
+            self.loop_depth += 1
             body = self.statement()
+            self.loop_depth -= 1
 
             # Put all the parts together into a two-level block while-statement
             while_body = BlockStmt(
@@ -133,6 +147,9 @@ class Parser:
         
         if self.match(LEFT_BRACE):
             return BlockStmt(block())
+        
+        if self.match(BREAK):
+            return break_statement()
         
         return expression_statement()
 
@@ -229,8 +246,11 @@ class Parser:
         
         def primary() -> Expr:
             if self.match(NUMBER, STRING, TRUE, FALSE, NIL):
+                conversion_dict: dict[TokenType, Lox_Literal] = {
+                    FALSE: False, TRUE: True, NIL: None
+                }
                 token = self.previous()
-                value = {FALSE: False, TRUE: True, NIL: None}.get(token, token.literal)  # type: ignore[call-overload]
+                value = conversion_dict.get(token.type, token.literal)  # type: ignore[call-overload]
                 return Literal(value)
             elif self.match(IDENTIFIER):
                 return Variable(self.previous())

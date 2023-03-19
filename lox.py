@@ -69,7 +69,6 @@ class Lox:
         scanner = scanner_module.Scanner(line)
         tokens = scanner.scan_tokens()
 
-        # print([t.lexeme for t in tokens[:-1]])
         parser = parser_module.Parser(tokens)
         statements = parser.parse()
         
@@ -86,11 +85,21 @@ class Lox:
         scanner = scanner_module.Scanner(source)
         tokens = scanner.scan_tokens()
 
-        # print([t.lexeme for t in tokens[:-1]])
         parser = parser_module.Parser(tokens)
         statements = parser.parse()
         
-        Lox.interpreter.interpret(statements)
+        if not Lox.had_error:  # TODO: Figure out why had_error is not True after errors
+            Lox.interpreter.interpret(statements)
+
+    @staticmethod
+    def stdin_run():
+        source = ""
+        while True:
+            try:
+                source += input()
+            except EOFError:
+                Lox.run(source)
+                return
 
 
 if __name__ == '__main__':
@@ -99,6 +108,9 @@ if __name__ == '__main__':
         print("Usage: plox [script]")
         sys.exit(64)
     elif len(args) == 2:
-        Lox.run_file(args[1])
+        if args[1] == "--":
+            Lox.stdin_run()
+        else:
+            Lox.run_file(args[1])
     else:
         Lox.run_prompt()

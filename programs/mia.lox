@@ -1,0 +1,17 @@
+var a = 2;  // "hello", true, false, nil, 1.25. "a" + "b" = "ab"
+var b;
+if (b = a = 3) print true; else print false;
+
+while (b < 5) {
+    b = b + 1;
+    print b;
+}
+
+var d = 1;
+
+while (d < 20) {
+    print "Fiskebollen lever i havet. Havet er fiskebollens hjem.";
+    print "Dette var det N-te verset."
+    print "Nå er det mellom 0 og 20 vers igjen:)";
+    d = d + 1;
+}
