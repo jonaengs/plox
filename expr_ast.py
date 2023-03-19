@@ -6,7 +6,7 @@ import token_type as TokenType
 # TODO: Figure out if we can keep abc metaclass somehow
 # class Expr(NamedTuple, metaclass=ABCMeta): 
 
-Expr = Union["Binary", "Grouping", "Literal", "Unary", "Variable", "Assign", "Logical"]
+Expr = Union["Binary", "Grouping", "Literal", "Unary", "Variable", "Assign", "Logical", "Call"]
 
 class Binary(NamedTuple):
     left: Expr
@@ -35,6 +35,12 @@ class Logical(NamedTuple):
     operator: Token
     right: Expr
 
+class Call(NamedTuple):
+    callee: Expr
+    r_paren: Token  # For reporting errors
+    arguments: list[Expr]
+
+
 
 def print_expr(expr: Expr):
     # TODO: Add remaining classes or remove completely
@@ -62,3 +68,8 @@ if __name__ == '__main__':
         Grouping(Literal(45.67))
     )
     print(print_expr(expr))
+
+    unary = Unary(
+        Token(TokenType.MINUS, "-", None, 1),
+        Literal(123)
+    )

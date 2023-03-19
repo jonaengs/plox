@@ -1,16 +1,42 @@
+from abc import abstractmethod
+import time
+import typing
+
 from environment import Environment
 import lox
 from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
 import token_type as TokenType
 from error import LoxRuntimeError
 
-from expr_ast import Assign, Expr, Grouping, Literal, Logical, Unary, Binary, Variable
+from expr_ast import Assign, Call, Expr, Grouping, Literal, Logical, Unary, Binary, Variable
 from lox_token import Token
+
+class Lox_Callable(typing.Protocol):
+    @abstractmethod
+    def arity(self): ...
+    @abstractmethod
+    def call(self, interpreter: "Interpreter", arguments: list[object]) -> object: ...
 
 class Interpreter:
     def __init__(self) -> None:
-        self.environment = Environment()
+        self.globals = Environment()
+        self.environment = self.globals
         self.hit_break = False
+
+        def get_clock_fun() -> Lox_Callable:
+            class _:
+                def arity(self) -> int: 
+                    return 0
+                
+                def call(self, interpreter: Interpreter, arguments: list[object]) -> float:
+                    return time.time()
+                
+                def __str__(self) -> str:
+                    return "<native fn 'clock'>"
+                
+            return _()
+        
+        self.globals.define("clock", get_clock_fun())
 
     def interpret(self, statements: list[Stmt]):
         try:
@@ -122,6 +148,18 @@ class Interpreter:
                 expr_val = self._evaluate(expr)
                 self.environment.assign(token, expr_val)
                 return expr_val
+            case Call(callee_expr, r_paren, args_exprs):
+                callee = self._evaluate(callee_expr)
+                args = list(map(self._evaluate, args_exprs))
+
+                fun = typing.cast(Lox_Callable, callee)
+                try:
+                    if len(args) == fun.arity():
+                        return fun.call(self, args)
+                    raise LoxRuntimeError(r_paren, f"Expected {fun.arity()} arguments but got {len(args)}.")
+                except AttributeError:
+                    raise LoxRuntimeError(r_paren, "Can only call functions or classes")
+                
 
         raise Exception("Interpreter missing match case")
 

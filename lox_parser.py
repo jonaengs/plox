@@ -1,4 +1,5 @@
-from expr_ast import Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable
+from collections.abc import Iterator
+from expr_ast import Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable
 from lox_token import Lox_Literal, Token
 from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
@@ -242,7 +243,32 @@ class Parser:
                 right = unary()
                 return Unary(operator, right)
 
-            return primary()
+            return call()
+        
+        def call() -> Expr:
+            def finish_call(callee: Expr) -> Expr:
+                def get_args() -> Iterator[Expr]:
+                    yield self.expression()
+                    while self.match(COMMA):
+                        yield self.expression()
+                
+                args = list(get_args()) if not self.check(RIGHT_PAREN) else []
+                r_paren = self.consume(RIGHT_PAREN, "Expect ') after function arguments.")
+                
+                if len(args) >= 255: 
+                    self.error(self.peek(), "Can't have more than 255 arguments")
+
+                return Call(callee, r_paren, args)                   
+                
+            expr = primary()
+
+            while True:
+                if self.match(LEFT_PAREN):
+                    expr = finish_call(expr)
+                else:
+                    break
+            
+            return expr
         
         def primary() -> Expr:
             if self.match(NUMBER, STRING, TRUE, FALSE, NIL):
