@@ -4,7 +4,7 @@ from expr_ast import Expr
 from lox_token import Token
 
 
-Stmt = Union["ExpressionStmt", "PrintStmt", "VarStmt", "BlockStmt", "IfStmt", "WhileStmt", "BreakStmt"]
+Stmt = Union["ExpressionStmt", "PrintStmt", "VarStmt", "BlockStmt", "IfStmt", "WhileStmt", "BreakStmt", "FunctionStmt"]
 
 class VarStmt(NamedTuple):
     name: Token
@@ -30,3 +30,12 @@ class WhileStmt(NamedTuple):
 
 class BreakStmt(NamedTuple):
     token: Token
+
+class FunctionStmt(NamedTuple):
+    token: Token
+    params: list[Token]
+    body: list[Stmt]  # Statements inside function body block
+
+class ReturnStmt(NamedTuple):
+    token: Token
+    value: Expr

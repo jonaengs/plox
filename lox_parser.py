@@ -1,10 +1,13 @@
 from collections.abc import Iterator
+import typing
+
 from expr_ast import Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable
 from lox_token import Lox_Literal, Token
-from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
+from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
 import lox
 from error import LoxParseError
+
 
 class Parser:
     def __init__(self, tokens: list[Token]):
@@ -30,11 +33,42 @@ class Parser:
         try:
             if self.match(VAR):
                 return self.var_declaration()
+            if self.match(FUN):
+                return self.function("function")
             return self.statement()
         except LoxParseError:
             self.synchronize()
             return None
         
+    def function(self, kind: typing.Literal["function", "method"]) -> FunctionStmt:
+        def get_params() -> Iterator[Token]:
+            yield self.consume(IDENTIFIER, "Expect parameter name.")
+            while self.match(COMMA):
+                yield self.consume(IDENTIFIER, "Expect parameter name.")
+        
+        token = self.consume(IDENTIFIER, f"Expect {kind} name.")
+        self.consume(LEFT_PAREN, f"Expect '(' after {kind} name.")
+        params = list(get_params()) if not self.check(RIGHT_PAREN) else []
+        self.consume(RIGHT_PAREN, "Expect ')' after parameter list.")
+        
+        if len(params) >= 255:
+            self.error(self.peek(), "Can't have more than 255 parameters.")
+
+        self.consume(LEFT_BRACE, f"Expect {{ before {kind} body.")
+        body = self.block()
+
+        return FunctionStmt(token, params, body)
+        
+    def block(self) -> list[Stmt]:
+        # Return statement list instead of block for re-use
+        def get_statements():
+            while not self.check(RIGHT_BRACE):
+                yield self.declaration()
+
+        statements = list(get_statements())
+        self.consume(RIGHT_BRACE, "Expect '}' after block.")
+        return statements
+
     def statement(self) -> Stmt:
         def print_statement() -> PrintStmt:
             value = self.expression()
@@ -45,16 +79,6 @@ class Parser:
             expr = self.expression()
             self.consume(SEMICOLON, "Expect ';' after expression.")
             return ExpressionStmt(expr)
-        
-        def block() -> list[Stmt]:
-            # Return statement list instead of block for re-use
-            def get_statements():
-                while not self.check(RIGHT_BRACE):
-                    yield self.declaration()
-
-            statements = list(get_statements())
-            self.consume(RIGHT_BRACE, "Expect '}' after block.")
-            return statements
         
         def if_statement() -> IfStmt:
             self.consume(LEFT_PAREN, "Expect '(' after 'if'.")
@@ -132,6 +156,14 @@ class Parser:
                 return BlockStmt([initializer, while_stmt])
             
             return while_stmt
+        
+        def return_statement():
+            keyword = self.previous()
+            value = self.expression() if not self.check(SEMICOLON) else None
+
+            self.consume(SEMICOLON, "Expect ';' after return statement")
+
+            return ReturnStmt(keyword, value)
 
         
         if self.match(FOR):
@@ -147,10 +179,13 @@ class Parser:
             return while_statement()
         
         if self.match(LEFT_BRACE):
-            return BlockStmt(block())
+            return BlockStmt(self.block())
         
         if self.match(BREAK):
             return break_statement()
+        
+        if self.match(RETURN):
+            return return_statement()
         
         return expression_statement()
 

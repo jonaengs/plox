@@ -4,7 +4,7 @@ import typing
 
 from environment import Environment
 import lox
-from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt
+from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 import token_type as TokenType
 from error import LoxRuntimeError
 
@@ -16,6 +16,35 @@ class Lox_Callable(typing.Protocol):
     def arity(self): ...
     @abstractmethod
     def call(self, interpreter: "Interpreter", arguments: list[object]) -> object: ...
+
+class Lox_Function(typing.NamedTuple):
+    declaration: FunctionStmt
+    closure: Environment
+
+    def call(self, interpreter: "Interpreter", arguments: list[object]) -> object:
+        environment = Environment(self.closure)
+        for param, arg in zip(self.declaration.params, arguments):
+            environment.define(param.lexeme, arg)
+
+        try:
+            interpreter._execute_block(self.declaration.body, environment)
+        except Return as r:
+            return r.ret_val
+        return None
+
+    def arity(self) -> int:
+        return len(self.declaration.params)
+    
+    def __str__(self) -> str:
+        return f"<fn '{self.declaration.token.lexeme}'>"
+    
+class Return(Exception):
+    def __init__(self, ret_val):
+        super().__init__()
+        self.ret_val = ret_val
+
+class Break(Exception):
+    ...
 
 class Interpreter:
     def __init__(self) -> None:
@@ -46,9 +75,6 @@ class Interpreter:
             lox.Lox.runtime_error(error)
 
     def _execute(self, statement: Stmt):
-        if self.hit_break:
-            return
-        
         match statement:
             case PrintStmt(expr):
                 value = self._evaluate(expr)
@@ -68,17 +94,23 @@ class Interpreter:
                 elif b_else is not None:
                     self._execute(b_else)
             case WhileStmt(cond, body):
-                while is_truthy(self._evaluate(cond)):
-                    self._execute(body)
-                    if self.hit_break: break
-                self.hit_break = False
+                try:
+                    while is_truthy(self._evaluate(cond)):
+                        self._execute(body)
+                except Break:
+                    pass
             case BreakStmt(_token):
-                self.hit_break = True  
+                raise Break()
+            case FunctionStmt(token, _params, _body):
+                function: Lox_Callable = Lox_Function(statement, self.environment)
+                self.environment.define(token.lexeme, function)
+            case ReturnStmt(token, expr):
+                raise Return(expr and self._evaluate(expr))
     
     def _execute_block(self, statements: list[Stmt], environment: Environment):
         prev_env = self.environment
         try:
-            self.environment  = environment
+            self.environment = Environment(environment)
             for statement in statements:
                 self._execute(statement)
         finally:
@@ -176,7 +208,7 @@ def stringify(val: object) -> str:
     
     # Do after float check because 1 == True, meaning otherwise
     # all 1's will print as 'true'
-    if val in simple_conversions:
+    if val in list(simple_conversions.keys()):  # TODO: Figure out why looking up Lox_Function objects directly in the dict causes a crash
         return simple_conversions[val]  # type: ignore[index] 
 
     return str(val)
