@@ -7,6 +7,7 @@ import token_type as TokenType
 import scanner as scanner_module
 import lox_parser as parser_module
 import interpreter as interpreter_module
+import resolver as resolver_module
 from error import LoxRuntimeError
 
 class Lox:
@@ -78,7 +79,12 @@ class Lox:
             else statement
             for statement in statements
         ]
-        Lox.interpreter.interpret(statements)
+
+        resolver = resolver_module.Resolver(Lox.interpreter)
+        resolver.resolve(statements)
+        
+        if Lox.had_error:
+            Lox.interpreter.interpret(statements)
 
     @staticmethod
     def run(source: str):
@@ -88,7 +94,13 @@ class Lox:
         parser = parser_module.Parser(tokens)
         statements = parser.parse()
         
-        if not Lox.had_error:  # TODO: Figure out why had_error is not True after errors
+        if Lox.had_error:  # TODO: Figure out why had_error is not True after errors
+            return
+            
+        resolver = resolver_module.Resolver(Lox.interpreter)
+        resolver.resolve(statements)
+
+        if Lox.had_error:
             Lox.interpreter.interpret(statements)
 
     @staticmethod

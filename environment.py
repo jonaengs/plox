@@ -26,3 +26,13 @@ class Environment:
         if self.enclosing is not None:
             return self.enclosing.get(token)
         raise LoxRuntimeError(token, f"Undefined variable '{token.lexeme}'.")
+    
+    def get_at(self, distance: int, name: str) -> object:
+        return self.ancestor(distance).values[name]
+    
+    def assign_at(self, distance: int, name: str, value: object):
+        self.ancestor(distance).values[name] = value
+    
+    def ancestor(self, distance: int) -> Environment:
+        if distance == 0: return self
+        return self.enclosing.ancestor(distance - 1)  # type: ignore[union-attr]

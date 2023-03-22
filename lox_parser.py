@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 import typing
 
-from expr_ast import Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable
+from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VariableExpr
 from lox_token import Lox_Literal, Token
 from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
@@ -149,7 +149,7 @@ class Parser:
             while_body = BlockStmt(
                 [body] + ([ExpressionStmt(increment)] if increment else [])
             )
-            while_cond = condition or Literal(True)
+            while_cond = condition or LiteralExpr(True)
             while_stmt = WhileStmt(while_cond, while_body)
 
             if initializer:
@@ -208,8 +208,8 @@ class Parser:
 
             if self.match(EQUAL):  # Won't match on '==' due to above equality() call
                 value = assignment()  # Recursively evaluate to the right. Allows chaining assignment
-                if type(expr) == Variable:
-                    return Assign(expr.token, value)
+                if type(expr) == VariableExpr:
+                    return AssignExpr(expr.token, value)
                 
                 # Report error. No need to raise and synchronize because the parser is not confused
                 self.error(self.previous(), "Invalid assignment target.")
@@ -221,7 +221,7 @@ class Parser:
             while self.match(AND):
                 operator = self.previous()
                 right = and_expr()
-                expr = Logical(expr, operator, right)
+                expr = LogicalExpr(expr, operator, right)
  
             return expr
 
@@ -230,7 +230,7 @@ class Parser:
             while self.match(AND):
                 operator = self.previous()
                 right = equality()
-                expr = Logical(expr, operator, right)
+                expr = LogicalExpr(expr, operator, right)
 
             return expr
 
@@ -241,7 +241,7 @@ class Parser:
             while self.match(BANG_EQUAL, EQUAL_EQUAL):
                 operator = self.previous()
                 right = comparison()
-                expr = Binary(expr, operator, right)
+                expr = BinaryExpr(expr, operator, right)
 
             return expr
         
@@ -250,7 +250,7 @@ class Parser:
             while self.match(LESS, LESS_EQUAL, GREATER, GREATER_EQUAL):
                 operator = self.previous()
                 right = term()
-                expr = Binary(expr, operator, right)
+                expr = BinaryExpr(expr, operator, right)
 
             return expr
         
@@ -259,7 +259,7 @@ class Parser:
             while self.match(MINUS, PLUS):
                 operator = self.previous()
                 right = factor()
-                expr = Binary(expr, operator, right)
+                expr = BinaryExpr(expr, operator, right)
 
             return expr
 
@@ -268,7 +268,7 @@ class Parser:
             while self.match(SLASH, STAR):
                 operator = self.previous()
                 right = unary()
-                expr = Binary(expr, operator, right)
+                expr = BinaryExpr(expr, operator, right)
 
             return expr
 
@@ -276,7 +276,7 @@ class Parser:
             if self.match(BANG, MINUS):
                 operator = self.previous()
                 right = unary()
-                return Unary(operator, right)
+                return UnaryExpr(operator, right)
 
             return call()
         
@@ -293,7 +293,7 @@ class Parser:
                 if len(args) >= 255: 
                     self.error(self.peek(), "Can't have more than 255 arguments")
 
-                return Call(callee, r_paren, args)                   
+                return CallExpr(callee, r_paren, args)                   
                 
             expr = primary()
 
@@ -312,13 +312,13 @@ class Parser:
                 }
                 token = self.previous()
                 value = conversion_dict.get(token.type, token.literal)  # type: ignore[call-overload]
-                return Literal(value)
+                return LiteralExpr(value)
             elif self.match(IDENTIFIER):
-                return Variable(self.previous())
+                return VariableExpr(self.previous())
             elif self.match(LEFT_PAREN):
                 expr = self.expression()
                 self.consume(RIGHT_PAREN, "Expcted ')' after expression.")
-                return Grouping(expr)
+                return GroupingExpr(expr)
             
             raise self.error(self.peek(), "Expected expression.")
 

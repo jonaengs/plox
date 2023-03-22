@@ -8,7 +8,7 @@ from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt,
 import token_type as TokenType
 from error import LoxRuntimeError
 
-from expr_ast import Assign, Call, Expr, Grouping, Literal, Logical, Unary, Binary, Variable
+from expr_ast import AssignExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, BinaryExpr, VariableExpr
 from lox_token import Token
 
 class Lox_Callable(typing.Protocol):
@@ -50,7 +50,7 @@ class Interpreter:
     def __init__(self) -> None:
         self.globals = Environment()
         self.environment = self.globals
-        self.hit_break = False
+        self.locals: dict[Expr, int] = {}
 
         def get_clock_fun() -> Lox_Callable:
             class _:
@@ -118,18 +118,18 @@ class Interpreter:
 
     def _evaluate(self, expr: Expr) -> object:
         match expr:
-            case Literal(value):
+            case LiteralExpr(value):
                 return value
-            case Grouping(expr):
+            case GroupingExpr(expr):
                 return self._evaluate(expr)
-            case Unary(op, expr):
+            case UnaryExpr(op, expr):
                 right = self._evaluate(expr)
                 match op.type:
                     case TokenType.MINUS:
                         return -to_float(right, op)
                     case TokenType.BANG:
                         return not is_truthy(right)
-            case Logical(l_expr, op, r_expr):
+            case LogicalExpr(l_expr, op, r_expr):
                 # Logical expr returns the value of one of its operands
                 # not a boolean (except when operands are booleans).
                 # The truthiness will be the same as if, though.
@@ -139,7 +139,7 @@ class Interpreter:
                 elif not is_truthy(left):
                     return left
                 return self._evaluate(r_expr)
-            case Binary(l_expr, op, r_expr):
+            case BinaryExpr(l_expr, op, r_expr):
                 left = self._evaluate(l_expr)
                 right = self._evaluate(r_expr)
                 match op.type:
@@ -173,14 +173,18 @@ class Interpreter:
                         return left == right
                     case TokenType.BANG_EQUAL:
                         return left != right
-            case Variable(token):
-                return self.environment.get(token)
-            case Assign(token, expr):
+            case VariableExpr(token):
+                return self.lookup_variable(token, expr)
+            case AssignExpr(token, expr):
                 # Make assignment an expression
                 expr_val = self._evaluate(expr)
-                self.environment.assign(token, expr_val)
+                distance = self.locals[expr]
+                if distance:
+                    self.environment.assign_at(distance, token.lexeme, expr_val)
+                else: 
+                    self.globals.assign(token, expr_val)
                 return expr_val
-            case Call(callee_expr, r_paren, args_exprs):
+            case CallExpr(callee_expr, r_paren, args_exprs):
                 callee = self._evaluate(callee_expr)
                 args = list(map(self._evaluate, args_exprs))
 
@@ -194,7 +198,17 @@ class Interpreter:
                 
 
         raise Exception("Interpreter missing match case")
+    
+    
+    def resolve(self, expr: Expr, depth: int):
+        self.locals[expr] = depth
 
+    def lookup_variable(self, token: Token, expr: Expr):
+        distance = self.locals.get(expr)
+        if distance:
+            return self.environment.get_at(distance, token.lexeme)
+        else:
+            return self.globals.get(token)
     
 def stringify(val: object) -> str:
     simple_conversions = {

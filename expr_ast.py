@@ -6,36 +6,36 @@ import token_type as TokenType
 # TODO: Figure out if we can keep abc metaclass somehow
 # class Expr(NamedTuple, metaclass=ABCMeta): 
 
-Expr = Union["Binary", "Grouping", "Literal", "Unary", "Variable", "Assign", "Logical", "Call"]
+Expr = Union["BinaryExpr", "GroupingExpr", "LiteralExpr", "UnaryExpr", "VariableExpr", "AssignExpr", "LogicalExpr", "CallExpr"]
 
-class Binary(NamedTuple):
+class BinaryExpr(NamedTuple):
     left: Expr
     operator: Token
     right: Expr
 
-class Grouping(NamedTuple):
+class GroupingExpr(NamedTuple):
     expression: Expr
 
-class Literal(NamedTuple):
+class LiteralExpr(NamedTuple):
     value: Lox_Literal
 
-class Unary(NamedTuple):
+class UnaryExpr(NamedTuple):
     operator: Token
     right: Expr
 
-class Variable(NamedTuple):
+class VariableExpr(NamedTuple):
     token: Token
 
-class Assign(NamedTuple):
+class AssignExpr(NamedTuple):
     token: Token
     value: Expr
 
-class Logical(NamedTuple):
+class LogicalExpr(NamedTuple):
     left: Expr
     operator: Token
     right: Expr
 
-class Call(NamedTuple):
+class CallExpr(NamedTuple):
     callee: Expr
     r_paren: Token  # For reporting errors
     arguments: list[Expr]
@@ -48,28 +48,28 @@ def print_expr(expr: Expr):
         return f"({name} {' '.join(map(print_expr, exprs))})"
      
     match expr:
-        case Binary(left, operator, right):
+        case BinaryExpr(left, operator, right):
             return parenthesize(operator.lexeme, left, right)
-        case Grouping(expression):
+        case GroupingExpr(expression):
             return parenthesize("group", expression)
-        case Literal(value):
+        case LiteralExpr(value):
             return "nil" if value is None else str(value)
-        case Unary(operator, right):
+        case UnaryExpr(operator, right):
             return parenthesize(operator.lexeme, right)
         
 
 if __name__ == '__main__':
-    expr = Binary(
-        Unary(
+    expr = BinaryExpr(
+        UnaryExpr(
             Token(TokenType.MINUS, "-", None, 1),
-            Literal(123)
+            LiteralExpr(123)
         ),
         Token(TokenType.STAR, "*", None, 1),
-        Grouping(Literal(45.67))
+        GroupingExpr(LiteralExpr(45.67))
     )
     print(print_expr(expr))
 
-    unary = Unary(
+    unary = UnaryExpr(
         Token(TokenType.MINUS, "-", None, 1),
-        Literal(123)
+        LiteralExpr(123)
     )
