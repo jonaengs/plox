@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import Literal
 import lox
 import interpreter as intepreter_module
-from expr_ast import Expr, GetExpr, SetExpr, ThisExpr
+from expr_ast import Expr, GetExpr, SetExpr, SuperExpr, ThisExpr
 from lox_token import Token
 
 from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
@@ -19,6 +19,7 @@ class FunctionType(Enum):
 class ClassType(Enum):
     NONE = auto()
     CLASS = auto()
+    SUBCLASS = auto()
 
 class Resolver:
     def __init__(self, interpreter: intepreter_module.Interpreter):
@@ -90,14 +91,18 @@ class Resolver:
                 if superclass:
                     if token.lexeme == superclass.token.lexeme:
                         lox.Lox.parse_error(superclass.token, "A class cannot inherit from itself")
-                    self.resolve(superclass)
+                    self.current_class = ClassType.SUBCLASS
+                    self._resolve(superclass)
 
-                with self.enter_scope() as scope:
-                    scope["this"] = True
-                    for method in methods:
-                        func_type = FunctionType.INITIALIZER \
-                            if token.lexeme == "init" else FunctionType.METHOD
-                        self._resolve_function(method, func_type)
+                with self.enter_scope_if(superclass) as scope:
+                    scope["super"] = True
+
+                    with self.enter_scope() as scope:
+                        scope["this"] = True
+                        for method in methods:
+                            func_type = FunctionType.INITIALIZER \
+                                if token.lexeme == "init" else FunctionType.METHOD
+                            self._resolve_function(method, func_type)
                 
                 self.current_class = enclosing_class
 
@@ -137,6 +142,15 @@ class Resolver:
                     lox.Lox.parse_error("Can't use 'this' outside a class.")
                 else:
                     self._resolve_local(unit, token)
+            case SuperExpr(keyword, _method):
+                if self.current_class == ClassType.NONE:
+                    lox.Lox.parse_error(keyword, "Can't use 'super' outside of a class.")
+                elif self.current_class == ClassType.CLASS:
+                    lox.Lox.parse_error(keyword, "Can't use 'super' in a class with no superclass.")
+                self._resolve_local(unit, keyword)
+
+            case _:
+                raise Exception("Resolver missing match case: " + unit.__class__.__name__)
             
     def _resolve_function(self, function: FunctionStmt, ftype: FunctionType):
         enclosing_function = self.current_function
@@ -186,4 +200,12 @@ class Resolver:
                 self.scopes.pop()
 
         return ScopeEnter()
+    
+    def enter_scope_if(self, cond):
+        class FakeScopeEnter:
+            def __enter__(*_):
+                return {}  # dummy dictionary that acts as a scope
+            def __exit__(*_):
+                pass
+        return self.enter_scope() if cond else FakeScopeEnter()
         

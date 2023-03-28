@@ -9,7 +9,7 @@ from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionSt
 import token_type as TokenType
 from error import LoxRuntimeError
 
-from expr_ast import AssignExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, BinaryExpr, VariableExpr
+from expr_ast import AssignExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, SuperExpr, ThisExpr, UnaryExpr, BinaryExpr, VariableExpr
 from lox_token import Token
 
 class Lox_Callable(typing.Protocol):
@@ -175,13 +175,24 @@ class Interpreter:
                     raise LoxRuntimeError(superclass_expr.token, "Superclass must be a class.")
                 
                 self.environment.define(token.lexeme, None)
+
+                # Create new environment for the class in which the super keyword 
+                # refers to the parent class (if a parent class is given).
+                if superclass:
+                    self.environment = Environment(self.environment)
+                    self.environment.define("super", superclass)
+
                 methods = {
                     method.token.lexeme: Lox_Function(method, self.environment, token.lexeme == "init")
                     for method in methods_stmts
                 }
-                
                 lox_class = Lox_Class(token.lexeme, superclass, methods)
+
+                if superclass:
+                    self.environment = self.environment.enclosing
                 self.environment.assign(token, lox_class)
+            case _:
+                raise Exception("Intepreter missing statement case")
 
     
     def _execute_block(self, statements: list[Stmt], environment: Environment):
@@ -288,8 +299,18 @@ class Interpreter:
                 return value
             case ThisExpr(token):
                 return self.lookup_variable(token, expr)
+            case SuperExpr(_keyword, method):
+                distance = self.locals[expr]
+                superclass = self.environment.get_at(distance, "super")
+                # The 'this' referred to in the superclass' scope
+                instance = self.environment.get_at(distance - 1, "this")  # This works because the 'this' scope is always right inside the 'super' scope
+                method = superclass.find_method(method.lexeme)
+                if not method:
+                    raise LoxRuntimeError(method, f"Undefined property '{method.lexeme}'.")
+                return method.bind(instance)
 
-        raise Exception("Interpreter missing match case")
+
+        raise Exception("Interpreter missing expr match case: " + expr.__class__.__name__)
     
     
     def resolve(self, expr: Expr, depth: int):

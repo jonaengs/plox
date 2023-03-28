@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 import typing
 
-from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VariableExpr
+from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, SuperExpr, ThisExpr, UnaryExpr, VariableExpr
 from lox_token import Lox_Literal, Token
 from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
@@ -340,6 +340,11 @@ class Parser:
                 return LiteralExpr(value)
             elif self.match(THIS):
                 return ThisExpr(self.previous())
+            elif self.match(SUPER):
+                keyword = self.previous()
+                self.consume(DOT, "Expect '.' after 'super'")
+                method = self.consume(IDENTIFIER, "Expect superclass method name.")
+                return SuperExpr(keyword, method)
             elif self.match(IDENTIFIER):
                 return VariableExpr(self.previous())
             elif self.match(LEFT_PAREN):
