@@ -14,6 +14,7 @@ class FunctionType(Enum):
     NONE = auto()
     FUNCTION = auto()
     METHOD = auto()
+    INITIALIZER = auto()
 
 class ClassType(Enum):
     NONE = auto()
@@ -70,7 +71,10 @@ class Resolver:
             case ReturnStmt(token, expr):
                 if self.current_function == FunctionType.NONE:
                     lox.Lox.parse_error(token, "Can't return from top-level code.")
-                if expr: self._resolve(expr)
+                if expr:
+                    if self.current_function == FunctionType.INITIALIZER:
+                        lox.Lox.parse_error(token, "Can't return a value from an initializer.")
+                    self._resolve(expr)
             case WhileStmt(condition, body):
                 self._resolve(condition)
                 self._resolve(body)
@@ -85,7 +89,8 @@ class Resolver:
                 with self.enter_scope() as scope:
                     scope["this"] = True
                     for method in methods:
-                        func_type = FunctionType.METHOD
+                        func_type = FunctionType.INITIALIZER \
+                            if token.lexeme == "init" else FunctionType.METHOD
                         self._resolve_function(method, func_type)
                 
                 self.current_class = enclosing_class

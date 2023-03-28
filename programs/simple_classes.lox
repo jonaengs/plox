@@ -34,3 +34,31 @@ class Cake {
 var cake = Cake();
 cake.flavor = "German chocolate";
 cake.taste("param"); // Prints "The German chocolate cake is delicious!".
+
+
+// Classes have initializers
+class Bakery {
+  init(num_cakes, num_cookies) {
+    this.num_items = num_cakes + num_cookies;
+    print "Creating a bakery with";
+    print this.num_items;
+    print "cakes and cookies!";
+  }
+}
+Bakery(12, 15);
+
+
+// Classes can return early from initializers
+class Beans {
+  init(num_beans) {
+    if (num_beans < 10) {
+      print "Not enough beans. Refusing to set.";
+      return;
+    }
+    print("Enough beans. I'm happy!")
+    this.num_beans = num_beans;
+  }
+}
+
+var beans2 = Beans(12);
+var beans1 = Beans(5);

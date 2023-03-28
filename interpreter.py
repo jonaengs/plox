@@ -21,6 +21,7 @@ class Lox_Callable(typing.Protocol):
 class Lox_Function(typing.NamedTuple):
     declaration: FunctionStmt
     closure: Environment
+    is_initializer: bool
 
     def call(self, interpreter: Interpreter, arguments: list[object]) -> object:
         environment = Environment(self.closure)
@@ -30,13 +31,21 @@ class Lox_Function(typing.NamedTuple):
         try:
             interpreter._execute_block(self.declaration.body, environment)
         except Return as r:
+            # Return "this" from an early return in an initializer call
+            if self.is_initializer:
+                return self.closure.get_at(0, "this")
             return r.ret_val
+        
+        # Return "this" from initializer call with no return
+        if self.is_initializer:
+            return self.closure.get_at(0, "this")
+
         return None
     
     def bind(self, instance: Lox_Instance) -> Lox_Function:
         new_closure = Environment(self.closure)        
         new_closure.define("this", instance)
-        return Lox_Function(self.declaration, new_closure)
+        return Lox_Function(self.declaration, new_closure, self.is_initializer)
 
     def arity(self) -> int:
         return len(self.declaration.params)
@@ -48,8 +57,15 @@ class Lox_Class(typing.NamedTuple):
     name: str
     methods: dict[str, Lox_Function]
 
-    def call(self, _interpreter: Interpreter, _arguments: list[object]) -> "Lox_Instance":
+    def call(self, interpreter: Interpreter, arguments: list[object]) -> "Lox_Instance":
         instance = Lox_Instance(self)
+
+        # Call initializer method (if defined) upon creation
+        # Class instantiation arguments are forwarded to the init method
+        initializer = self.find_method("init")
+        if initializer:
+            initializer.bind(instance).call(interpreter, arguments)
+
         return instance
     
     def find_method(self, identifier: str) -> Lox_Function | None:
@@ -57,7 +73,8 @@ class Lox_Class(typing.NamedTuple):
             return self.methods[identifier]
     
     def arity(self) -> int:
-        return 0
+        initializer = self.find_method("init")
+        return initializer.arity() if initializer else 0
 
     def __str__(self) -> str:
         return self.name
@@ -145,14 +162,14 @@ class Interpreter:
             case BreakStmt(_token):
                 raise Break()
             case FunctionStmt(token, _params, _body):
-                function: Lox_Callable = Lox_Function(statement, self.environment)
+                function: Lox_Callable = Lox_Function(statement, self.environment, False)
                 self.environment.define(token.lexeme, function)
             case ReturnStmt(token, expr):
                 raise Return(expr and self._evaluate(expr))
             case ClassStmt(token, methods_stmts):
                 self.environment.define(token.lexeme, None)
                 methods = {
-                    method.token.lexeme: Lox_Function(method, self.environment)
+                    method.token.lexeme: Lox_Function(method, self.environment, token.lexeme == "init")
                     for method in methods_stmts
                 }
                 
@@ -259,7 +276,7 @@ class Interpreter:
                 if type(instance) != Lox_Instance:
                     raise LoxRuntimeError(token, "Only instances have fields.")
                 
-                value = self._evaluate(value_expr)
+                value = self._evaluate(value_expr)  # type: ignore[assignment]
                 instance.set(token, value)
                 return value
             case ThisExpr(token):
