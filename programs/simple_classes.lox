@@ -1,3 +1,4 @@
+// Classes are parsed correctly and we can print them
 class DevonshireCream {
   serveOn() {
     return "Scones";
@@ -6,6 +7,9 @@ class DevonshireCream {
 
 print DevonshireCream; // Prints "DevonshireCream".
 
+
+// Classes can be instantiated and we can call 
+// the methods of class instances
 class Bacon {
   eat() {
     print "Crunch crunch crunch!";
@@ -15,3 +19,18 @@ class Bacon {
 var b = Bacon();
 b.eat(); // Prints "Crunch crunch crunch!".
 Bacon().eat(); // Prints "Crunch crunch crunch!".
+
+
+// Objects contain state which we can access using "this".
+// And the fields and methods of an instance are linked
+class Cake {
+  taste(param) {
+    var adjective = "delicious";
+    this.test = 123;
+    print "The " + this.flavor + " cake is " + adjective + "!";
+  }
+}
+
+var cake = Cake();
+cake.flavor = "German chocolate";
+cake.taste("param"); // Prints "The German chocolate cake is delicious!".

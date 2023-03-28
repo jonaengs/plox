@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 import typing
 
-from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, UnaryExpr, VariableExpr
+from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VariableExpr
 from lox_token import Lox_Literal, Token
 from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
@@ -334,6 +334,8 @@ class Parser:
                 token = self.previous()
                 value = conversion_dict.get(token.type, token.literal)  # type: ignore[call-overload]
                 return LiteralExpr(value)
+            elif self.match(THIS):
+                return ThisExpr(self.previous())
             elif self.match(IDENTIFIER):
                 return VariableExpr(self.previous())
             elif self.match(LEFT_PAREN):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import traceback
+
 from error import LoxRuntimeError
 from lox_token import Token
 
@@ -28,11 +30,17 @@ class Environment:
         raise LoxRuntimeError(token, f"Undefined variable '{token.lexeme}'.")
     
     def get_at(self, distance: int, name: str) -> object:
-        return self.ancestor(distance).values[name]
+        return self._ancestor(distance).values[name]
     
     def assign_at(self, distance: int, name: str, value: object):
-        self.ancestor(distance).values[name] = value
+        self._ancestor(distance).values[name] = value
     
-    def ancestor(self, distance: int) -> Environment:
+    def _ancestor(self, distance: int) -> Environment:
         if distance == 0: return self
-        return self.enclosing.ancestor(distance - 1)  # type: ignore[union-attr]
+        return self.enclosing._ancestor(distance - 1)  # type: ignore[union-attr]
+    
+    def print_stack(self):
+        print("-------------")
+        print(self.values)
+        if self.enclosing:
+            self.enclosing.print_stack()

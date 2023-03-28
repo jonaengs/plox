@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import abstractmethod
 import time
 import typing
@@ -8,20 +9,20 @@ from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionSt
 import token_type as TokenType
 from error import LoxRuntimeError
 
-from expr_ast import AssignExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, UnaryExpr, BinaryExpr, VariableExpr
+from expr_ast import AssignExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, BinaryExpr, VariableExpr
 from lox_token import Token
 
 class Lox_Callable(typing.Protocol):
     @abstractmethod
     def arity(self): ...
     @abstractmethod
-    def call(self, interpreter: "Interpreter", arguments: list[object]) -> object: ...
+    def call(self, interpreter: Interpreter, arguments: list[object]) -> object: ...
 
 class Lox_Function(typing.NamedTuple):
     declaration: FunctionStmt
     closure: Environment
 
-    def call(self, interpreter: "Interpreter", arguments: list[object]) -> object:
+    def call(self, interpreter: Interpreter, arguments: list[object]) -> object:
         environment = Environment(self.closure)
         for param, arg in zip(self.declaration.params, arguments):
             environment.define(param.lexeme, arg)
@@ -31,6 +32,11 @@ class Lox_Function(typing.NamedTuple):
         except Return as r:
             return r.ret_val
         return None
+    
+    def bind(self, instance: Lox_Instance) -> Lox_Function:
+        new_closure = Environment(self.closure)        
+        new_closure.define("this", instance)
+        return Lox_Function(self.declaration, new_closure)
 
     def arity(self) -> int:
         return len(self.declaration.params)
@@ -42,11 +48,11 @@ class Lox_Class(typing.NamedTuple):
     name: str
     methods: dict[str, Lox_Function]
 
-    def call(self, interpreter: "Interpreter", arguments: list[object]) -> "Lox_Instance":
+    def call(self, _interpreter: Interpreter, _arguments: list[object]) -> "Lox_Instance":
         instance = Lox_Instance(self)
         return instance
     
-    def find_method(self, identifier: str) -> Lox_Function:
+    def find_method(self, identifier: str) -> Lox_Function | None:
         if identifier in self.methods:
             return self.methods[identifier]
     
@@ -65,7 +71,7 @@ class Lox_Instance:
         if token.lexeme in self.fields:
             return self.fields[token.lexeme]
         if (method := self.klass.find_method(token.lexeme)):
-            return method
+            return method.bind(self)
             
         raise LoxRuntimeError(token, f"Undefined property '{token.lexeme}' of {self}.")
     
@@ -94,7 +100,7 @@ class Interpreter:
                 def arity(self) -> int: 
                     return 0
                 
-                def call(self, interpreter: Interpreter, arguments: list[object]) -> float:
+                def call(self, _interpreter: Interpreter, _arguments: list[object]) -> float:
                     return time.time()
                 
                 def __str__(self) -> str:
@@ -256,6 +262,8 @@ class Interpreter:
                 value = self._evaluate(value_expr)
                 instance.set(token, value)
                 return value
+            case ThisExpr(token):
+                return self.lookup_variable(token, expr)
 
         raise Exception("Interpreter missing match case")
     
@@ -265,7 +273,7 @@ class Interpreter:
 
     def lookup_variable(self, token: Token, expr: Expr):
         distance = self.locals.get(expr)
-        if distance:
+        if distance is not None:
             return self.environment.get_at(distance, token.lexeme)
         else:
             return self.globals.get(token)

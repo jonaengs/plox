@@ -6,7 +6,7 @@ import token_type as TokenType
 # TODO: Figure out if we can keep abc metaclass somehow
 # class Expr(NamedTuple, metaclass=ABCMeta): 
 
-Expr = Union["BinaryExpr", "GroupingExpr", "LiteralExpr", "UnaryExpr", "VariableExpr", "AssignExpr", "LogicalExpr", "CallExpr", "GetExpr", "SetExpr"]
+Expr = Union["BinaryExpr", "GroupingExpr", "LiteralExpr", "UnaryExpr", "VariableExpr", "AssignExpr", "LogicalExpr", "CallExpr", "GetExpr", "SetExpr", "ThisExpr"]
 
 class BinaryExpr(NamedTuple):
     left: Expr
@@ -49,6 +49,8 @@ class SetExpr(NamedTuple):
     token: Token
     value: Expr
 
+class ThisExpr(NamedTuple):
+    token: Token
 
 
 def print_expr(expr: Expr):
