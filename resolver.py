@@ -7,7 +7,7 @@ import interpreter as intepreter_module
 from expr_ast import Expr
 from lox_token import Token
 
-from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
+from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from expr_ast import AssignExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, BinaryExpr, VariableExpr
 
 class FunctionType(Enum):
@@ -71,10 +71,15 @@ class Resolver:
                 self._resolve(body)
             case BreakStmt():
                 pass
+            case ClassStmt(token, methods):
+                self.declare(token)
+                self.define(token)
+                # TODO: Resolve methods
 
             # EXPRESSIONS
             case VariableExpr(token):
-                if (scope := self.scopes[-1]) and scope.get(token.lexeme) == False:
+                scope = self.scopes and self.scopes[-1]
+                if scope and scope.get(token.lexeme) == False:
                     lox.Lox.parse_error(token, "Can't read local variable in its own initializer.")  # TODO: in book, the method is called "error"
                 self.resolve_local(unit, token)
             case AssignExpr(token, value):

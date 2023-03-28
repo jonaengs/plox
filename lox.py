@@ -38,6 +38,7 @@ class Lox:
 
     @staticmethod
     def report(line: int, where: str, message: str):
+        print("report")
         Lox.had_error = True
         
         print(f"[line {line}] Error{where}: {message}", file=sys.stderr)
@@ -83,7 +84,7 @@ class Lox:
         resolver = resolver_module.Resolver(Lox.interpreter)
         resolver.resolve(statements)
         
-        if Lox.had_error:
+        if not Lox.had_error:
             Lox.interpreter.interpret(statements)
 
     @staticmethod
@@ -93,14 +94,12 @@ class Lox:
 
         parser = parser_module.Parser(tokens)
         statements = parser.parse()
-        
         if Lox.had_error:  # TODO: Figure out why had_error is not True after errors
             return
             
         resolver = resolver_module.Resolver(Lox.interpreter)
         resolver.resolve(statements)
-
-        if Lox.had_error:
+        if not Lox.had_error:
             Lox.interpreter.interpret(statements)
 
     @staticmethod

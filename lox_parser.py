@@ -3,7 +3,7 @@ import typing
 
 from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VariableExpr
 from lox_token import Lox_Literal, Token
-from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
+from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
 import lox
 from error import LoxParseError
@@ -35,10 +35,26 @@ class Parser:
                 return self.var_declaration()
             if self.match(FUN):
                 return self.function("function")
+            if self.match(CLASS):
+                return self.class_declaration()
             return self.statement()
         except LoxParseError:
             self.synchronize()
             return None
+        
+    def class_declaration(self):
+        def get_methods() -> Iterator[FunctionStmt]:
+            while not (self.check(RIGHT_BRACE) or self.is_at_end()):
+                yield self.function("method")
+
+        token = self.consume(IDENTIFIER, "Expect class name.")
+        self.consume(LEFT_BRACE, "Expect '{' before class body.")
+
+        methods = list(get_methods())
+
+        self.consume(RIGHT_BRACE, "Expect '}' after class body")
+
+        return ClassStmt(token, methods)
         
     def function(self, kind: typing.Literal["function", "method"]) -> FunctionStmt:
         def get_params() -> Iterator[Token]:

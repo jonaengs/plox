@@ -4,7 +4,7 @@ import typing
 
 from environment import Environment
 import lox
-from stmt_ast import BlockStmt, BreakStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
+from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 import token_type as TokenType
 from error import LoxRuntimeError
 
@@ -37,6 +37,12 @@ class Lox_Function(typing.NamedTuple):
     
     def __str__(self) -> str:
         return f"<fn '{self.declaration.token.lexeme}'>"
+    
+class Lox_Class(typing.NamedTuple):
+    name: str
+
+    def __str__(self):
+        return self.name
     
 class Return(Exception):
     def __init__(self, ret_val):
@@ -106,6 +112,10 @@ class Interpreter:
                 self.environment.define(token.lexeme, function)
             case ReturnStmt(token, expr):
                 raise Return(expr and self._evaluate(expr))
+            case ClassStmt(token, methods):
+                self.environment.define(token.lexeme, None)
+                lox_class = Lox_Class(token.lexeme)
+                self.environment.assign(token, lox_class)
     
     def _execute_block(self, statements: list[Stmt], environment: Environment):
         prev_env = self.environment
