@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 import typing
 
-from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VariableExpr
+from expr_ast import AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, UnaryExpr, VariableExpr
 from lox_token import Lox_Literal, Token
 from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
 from token_type import *
@@ -222,10 +222,12 @@ class Parser:
         def assignment() -> Expr:
             expr = or_expr()
 
-            if self.match(EQUAL):  # Won't match on '==' due to above equality() call
+            if self.match(EQUAL):  # Won't match on '==' due to above equality() call (inside or_expr)
                 value = assignment()  # Recursively evaluate to the right. Allows chaining assignment
                 if type(expr) == VariableExpr:
                     return AssignExpr(expr.token, value)
+                if type(expr) == GetExpr:
+                    return SetExpr(expr.instance, expr.token, value)
                 
                 # Report error. No need to raise and synchronize because the parser is not confused
                 self.error(self.previous(), "Invalid assignment target.")
@@ -309,13 +311,16 @@ class Parser:
                 if len(args) >= 255: 
                     self.error(self.peek(), "Can't have more than 255 arguments")
 
-                return CallExpr(callee, r_paren, args)                   
+                return CallExpr(callee, r_paren, tuple(args))                   
                 
             expr = primary()
 
             while True:
                 if self.match(LEFT_PAREN):
                     expr = finish_call(expr)
+                elif self.match(DOT):
+                    token = self.consume(IDENTIFIER, "Expect property name after '.'.")
+                    expr = GetExpr(expr, token)
                 else:
                     break
             

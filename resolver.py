@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import Literal
 import lox
 import interpreter as intepreter_module
-from expr_ast import Expr
+from expr_ast import Expr, GetExpr, SetExpr
 from lox_token import Token
 
 from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt
@@ -13,6 +13,7 @@ from expr_ast import AssignExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, Logi
 class FunctionType(Enum):
     NONE = auto()
     FUNCTION = auto()
+    METHOD = auto()
 
 class Resolver:
     def __init__(self, interpreter: intepreter_module.Interpreter):
@@ -74,7 +75,9 @@ class Resolver:
             case ClassStmt(token, methods):
                 self.declare(token)
                 self.define(token)
-                # TODO: Resolve methods
+                for method in methods:
+                    func_type = FunctionType.METHOD
+                    self.resolve_function(method, func_type)
 
             # EXPRESSIONS
             case VariableExpr(token):
@@ -101,7 +104,11 @@ class Resolver:
                 self._resolve(right)
             case UnaryExpr(_operator, expr):
                 self._resolve(expr)
-            
+            case GetExpr(instance, _token):
+                self._resolve(instance)
+            case SetExpr(instance, token, value):
+                self._resolve(value)
+                self._resolve(instance)
             
     def resolve_function(self, function: FunctionStmt, ftype: FunctionType):
         enclosing_function = self.current_function

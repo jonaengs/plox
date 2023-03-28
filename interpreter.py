@@ -8,7 +8,7 @@ from stmt_ast import BlockStmt, BreakStmt, ClassStmt, ExpressionStmt, FunctionSt
 import token_type as TokenType
 from error import LoxRuntimeError
 
-from expr_ast import AssignExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, BinaryExpr, VariableExpr
+from expr_ast import AssignExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, UnaryExpr, BinaryExpr, VariableExpr
 from lox_token import Token
 
 class Lox_Callable(typing.Protocol):
@@ -37,12 +37,43 @@ class Lox_Function(typing.NamedTuple):
     
     def __str__(self) -> str:
         return f"<fn '{self.declaration.token.lexeme}'>"
-    
+
 class Lox_Class(typing.NamedTuple):
     name: str
+    methods: dict[str, Lox_Function]
+
+    def call(self, interpreter: "Interpreter", arguments: list[object]) -> "Lox_Instance":
+        instance = Lox_Instance(self)
+        return instance
+    
+    def find_method(self, identifier: str) -> Lox_Function:
+        if identifier in self.methods:
+            return self.methods[identifier]
+    
+    def arity(self) -> int:
+        return 0
+
+    def __str__(self) -> str:
+        return self.name
+    
+class Lox_Instance:
+    def __init__(self, klass: Lox_Class):
+        self.klass = klass
+        self.fields: dict[str, object] = {}
+
+    def get(self, token: Token):
+        if token.lexeme in self.fields:
+            return self.fields[token.lexeme]
+        if (method := self.klass.find_method(token.lexeme)):
+            return method
+            
+        raise LoxRuntimeError(token, f"Undefined property '{token.lexeme}' of {self}.")
+    
+    def set(self, token: Token, value: object):
+        self.fields[token.lexeme] = value
 
     def __str__(self):
-        return self.name
+        return str(self.klass) + " instance"
     
 class Return(Exception):
     def __init__(self, ret_val):
@@ -112,10 +143,16 @@ class Interpreter:
                 self.environment.define(token.lexeme, function)
             case ReturnStmt(token, expr):
                 raise Return(expr and self._evaluate(expr))
-            case ClassStmt(token, methods):
+            case ClassStmt(token, methods_stmts):
                 self.environment.define(token.lexeme, None)
-                lox_class = Lox_Class(token.lexeme)
+                methods = {
+                    method.token.lexeme: Lox_Function(method, self.environment)
+                    for method in methods_stmts
+                }
+                
+                lox_class = Lox_Class(token.lexeme, methods)
                 self.environment.assign(token, lox_class)
+
     
     def _execute_block(self, statements: list[Stmt], environment: Environment):
         prev_env = self.environment
@@ -188,7 +225,7 @@ class Interpreter:
             case AssignExpr(token, expr):
                 # Make assignment an expression
                 expr_val = self._evaluate(expr)
-                distance = self.locals[expr]
+                distance = self.locals.get(expr)
                 if distance:
                     self.environment.assign_at(distance, token.lexeme, expr_val)
                 else: 
@@ -205,7 +242,20 @@ class Interpreter:
                     raise LoxRuntimeError(r_paren, f"Expected {fun.arity()} arguments but got {len(args)}.")
                 except AttributeError:
                     raise LoxRuntimeError(r_paren, "Can only call functions or classes")
+            case GetExpr(instance_expr, token):
+                instance = self._evaluate(instance_expr)
+                if type(instance) == Lox_Instance:
+                    return instance.get(token)
+                raise LoxRuntimeError(token, "Only instances have properties.")
+            case SetExpr(instance_expr, token, value_expr):
+                instance = self._evaluate(instance_expr)
+
+                if type(instance) != Lox_Instance:
+                    raise LoxRuntimeError(token, "Only instances have fields.")
                 
+                value = self._evaluate(value_expr)
+                instance.set(token, value)
+                return value
 
         raise Exception("Interpreter missing match case")
     
