@@ -80,12 +80,18 @@ class Resolver:
                 self._resolve(body)
             case BreakStmt():
                 pass
-            case ClassStmt(token, methods):
+            case ClassStmt(token, superclass, methods):
                 enclosing_class = self.current_class
                 self.current_class = ClassType.CLASS
                 
                 self._declare(token)
                 self._define(token)
+
+                if superclass:
+                    if token.lexeme == superclass.token.lexeme:
+                        lox.Lox.parse_error(superclass.token, "A class cannot inherit from itself")
+                    self.resolve(superclass)
+
                 with self.enter_scope() as scope:
                     scope["this"] = True
                     for method in methods:

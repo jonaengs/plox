@@ -48,13 +48,17 @@ class Parser:
                 yield self.function("method")
 
         token = self.consume(IDENTIFIER, "Expect class name.")
+        superclass = None
+        if self.match(LESS):
+            self.consume(IDENTIFIER, "Expect superclass name")
+            superclass = VariableExpr(self.previous())
         self.consume(LEFT_BRACE, "Expect '{' before class body.")
 
         methods = list(get_methods())
 
         self.consume(RIGHT_BRACE, "Expect '}' after class body")
 
-        return ClassStmt(token, methods)
+        return ClassStmt(token, superclass, methods)
         
     def function(self, kind: typing.Literal["function", "method"]) -> FunctionStmt:
         def get_params() -> Iterator[Token]:

@@ -1,6 +1,6 @@
 from typing import NamedTuple, Union
 
-from expr_ast import Expr
+from expr_ast import Expr, VariableExpr
 from lox_token import Token
 
 
@@ -42,4 +42,5 @@ class ReturnStmt(NamedTuple):
 
 class ClassStmt(NamedTuple):
     token: Token
+    superclass: VariableExpr
     methods: list[FunctionStmt]

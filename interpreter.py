@@ -55,6 +55,7 @@ class Lox_Function(typing.NamedTuple):
 
 class Lox_Class(typing.NamedTuple):
     name: str
+    superclass: Lox_Class | None
     methods: dict[str, Lox_Function]
 
     def call(self, interpreter: Interpreter, arguments: list[object]) -> "Lox_Instance":
@@ -71,6 +72,8 @@ class Lox_Class(typing.NamedTuple):
     def find_method(self, identifier: str) -> Lox_Function | None:
         if identifier in self.methods:
             return self.methods[identifier]
+        if self.superclass:
+            return self.superclass.find_method(identifier)
     
     def arity(self) -> int:
         initializer = self.find_method("init")
@@ -166,14 +169,18 @@ class Interpreter:
                 self.environment.define(token.lexeme, function)
             case ReturnStmt(token, expr):
                 raise Return(expr and self._evaluate(expr))
-            case ClassStmt(token, methods_stmts):
+            case ClassStmt(token, superclass_expr, methods_stmts):
+                superclass = superclass_expr and self._evaluate(superclass_expr)
+                if superclass and type(superclass) != Lox_Class:
+                    raise LoxRuntimeError(superclass_expr.token, "Superclass must be a class.")
+                
                 self.environment.define(token.lexeme, None)
                 methods = {
                     method.token.lexeme: Lox_Function(method, self.environment, token.lexeme == "init")
                     for method in methods_stmts
                 }
                 
-                lox_class = Lox_Class(token.lexeme, methods)
+                lox_class = Lox_Class(token.lexeme, superclass, methods)
                 self.environment.assign(token, lox_class)
 
     
